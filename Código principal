@@ -1,0 +1,239 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <algorithm>
+
+struct Filme {
+    int id;
+    std::string titulo;
+    std::vector<std::string> generos;
+};
+
+struct Usuario {
+    int id;
+    std::map<int, float> avaliacoes;
+};
+
+class SistemaDeRecomendacao {
+private:
+    std::vector<Filme> filmes;
+    std::vector<Usuario> usuarios;
+
+public:
+    SistemaDeRecomendacao(const std::vector<Filme>& filmes, const std::vector<Usuario>& usuarios)
+        : filmes(filmes), usuarios(usuarios) {}
+
+    void cadastrar_usuario(int id) {
+        for (const auto& usuario : usuarios) {
+            if (usuario.id == id) {
+                std::cout << "Usuário com ID " << id << " já existe." << std::endl;
+                return;
+            }
+        }
+        Usuario novo_usuario;
+        novo_usuario.id = id;
+        usuarios.push_back(novo_usuario);
+        std::cout << "Usuário com ID " << id << " cadastrado com sucesso." << std::endl;
+    }
+
+    void avaliar_filme(int id_usuario, int id_filme, float nota) {
+        Usuario* usuario = nullptr;
+        for (auto& u : usuarios) {
+            if (u.id == id_usuario) {
+                usuario = &u;
+                break;
+            }
+        }
+        if (!usuario) {
+            std::cerr << "Usuário não encontrado." << std::endl;
+            return;
+        }
+
+        bool filme_existe = false;
+        for (const auto& f : filmes) {
+            if (f.id == id_filme) {
+                filme_existe = true;
+                break;
+            }
+        }
+        if (!filme_existe) {
+            std::cerr << "Filme não encontrado." << std::endl;
+            return;
+        }
+
+        usuario->avaliacoes[id_filme] = nota;
+        std::cout << "Filme avaliado com sucesso." << std::endl;
+    }
+
+    std::vector<Filme> recomendar_filmes(int id_usuario) {
+        Usuario* usuario = nullptr;
+        for (auto& u : usuarios) {
+            if (u.id == id_usuario) {
+                usuario = &u;
+                break;
+            }
+        }
+        if (!usuario) {
+            throw std::runtime_error("Usuário não encontrado");
+        }
+
+        std::map<std::string, int> frequencia_generos;
+        for (const auto& avaliacao : usuario->avaliacoes) {
+            if (avaliacao.second >= 3.0) {
+                const Filme* filme = nullptr;
+                for (const auto& f : filmes) {
+                    if (f.id == avaliacao.first) {
+                        filme = &f;
+                        break;
+                    }
+                }
+                if (filme) {
+                    for (const auto& genero : filme->generos) {
+                        frequencia_generos[genero]++;
+                    }
+                }
+            }
+        }
+
+        std::vector<std::string> generos_preferidos;
+        int max_frequencia = 0;
+        for (const auto& par : frequencia_generos) {
+            if (par.second > max_frequencia) {
+                max_frequencia = par.second;
+                generos_preferidos.clear();
+                generos_preferidos.push_back(par.first);
+            } else if (par.second == max_frequencia) {
+                generos_preferidos.push_back(par.first);
+            }
+        }
+
+        std::vector<Filme> recomendacoes;
+        for (const auto& filme : filmes) {
+            for (const auto& genero : filme.generos) {
+                if (std::find(generos_preferidos.begin(), generos_preferidos.end(), genero) != generos_preferidos.end()) {
+                    recomendacoes.push_back(filme);
+                    break;
+                }
+            }
+        }
+
+        return recomendacoes;
+    }
+
+    void listar_usuarios() const {
+        std::cout << "Usuários cadastrados:" << std::endl;
+        for (const auto& usuario : usuarios) {
+            std::cout << "ID: " << usuario.id << std::endl;
+        }
+    }
+
+    void exibir_historico_avaliacoes(int id_usuario) const {
+        const Usuario* usuario = nullptr;
+        for (const auto& u : usuarios) {
+            if (u.id == id_usuario) {
+                usuario = &u;
+                break;
+            }
+        }
+        if (!usuario) {
+            std::cerr << "Usuário não encontrado." << std::endl;
+            return;
+        }
+
+        std::cout << "Histórico de avaliações do usuário " << id_usuario << ":" << std::endl;
+        for (const auto& avaliacao : usuario->avaliacoes) {
+            std::cout << "Filme ID: " << avaliacao.first << " - Nota: " << avaliacao.second << std::endl;
+        }
+    }
+};
+
+int main() {
+    std::vector<Filme> filmes = {
+        {1, "Vingadores", {"Ação", "Aventura"}},
+        {2, "Como se fosse a primeira vez", {"Comédia", "Romance"}},
+        {3, "Pixels", {"Ação", "Comédia"}},
+        {4, "Como eu era antes de você", {"Drama", "Romance"}},
+        {5, "Star Wars Capítulo 1", {"Ficção Científica", "Ação"}},
+        {6, "Invocação do mal", {"Horror", "Thriller"}},
+        {7, "Shrek", {"Animação", "Família"}},
+        {8, "Arremesso Final", {"Documentário", "História"}}
+    };
+
+    std::vector<Usuario> usuarios = {
+        {1, {{1, 5.0}, {2, 3.0}, {3, 4.0}}},
+        {2, {{1, 2.0}, {3, 5.0}, {4, 3.0}}},
+        {3, {{5, 4.0}, {6, 2.0}, {7, 5.0}}},
+        {4, {{2, 4.0}, {3, 1.0}, {8, 5.0}}},
+        {5, {{1, 3.0}, {5, 4.0}, {6, 5.0}}}
+    };
+
+    SistemaDeRecomendacao sistema(filmes, usuarios);
+
+    int opcao;
+    do {
+        std::cout << "1. Cadastrar novo usuário" << std::endl;
+        std::cout << "2. Listar usuários" << std::endl;
+        std::cout << "3. Recomendar filmes para um usuário" << std::endl;
+        std::cout << "4. Avaliar filme" << std::endl;
+        std::cout << "5. Exibir histórico de avaliações" << std::endl;
+        std::cout << "6. Sair" << std::endl;
+        std::cout << "Escolha uma opção: ";
+        std::cin >> opcao;
+
+        switch (opcao) {
+            case 1: {
+                int id;
+                std::cout << "Digite o ID do novo usuário: ";
+                std::cin >> id;
+                sistema.cadastrar_usuario(id);
+                break;
+            }
+            case 2:
+                sistema.listar_usuarios();
+                break;
+            case 3: {
+                int id;
+                std::cout << "Digite o ID do usuário: ";
+                std::cin >> id;
+                try {
+                    std::vector<Filme> recomendacoes = sistema.recomendar_filmes(id);
+                    std::cout << "Recomendações de filmes para o usuário " << id << ":" << std::endl;
+                    for (const auto& filme : recomendacoes) {
+                        std::cout << " - " << filme.titulo << " (" << filme.id << ")" << std::endl;
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "Erro: " << e.what() << std::endl;
+                }
+                break;
+            }
+            case 4: {
+                int id_usuario, id_filme;
+                float nota;
+                std::cout << "Digite o ID do usuário: ";
+                std::cin >> id_usuario;
+                std::cout << "Digite o ID do filme: ";
+                std::cin >> id_filme;
+                std::cout << "Digite a nota do filme (0.0 a 5.0): ";
+                std::cin >> nota;
+                sistema.avaliar_filme(id_usuario, id_filme, nota);
+                break;
+            }
+            case 5: {
+                int id_usuario;
+                std::cout << "Digite o ID do usuário: ";
+                std::cin >> id_usuario;
+                sistema.exibir_historico_avaliacoes(id_usuario);
+                break;
+            }
+            case 6:
+                std::cout << "Saindo..." << std::endl;
+                break;
+            default:
+                std::cout << "Opção inválida. Tente novamente." << std::endl;
+                break;
+        }
+    } while (opcao != 6);
+
+    return 0;
+}
